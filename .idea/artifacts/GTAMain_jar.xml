@@ -1,0 +1,11 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="GTAMain:jar">
+    <output-path>$USER_HOME$/Desktop/Test Server/plugins</output-path>
+    <root id="archive" name="GTA.jar">
+      <element id="module-output" name="GTA" />
+      <element id="extracted-dir" path="$USER_HOME$/Desktop/craftbukkit-latest.jar" path-in-jar="/" />
+      <element id="file-copy" path="$PROJECT_DIR$/plugin.yml" />
+      <element id="file-copy" path="$PROJECT_DIR$/config.yml" />
+    </root>
+  </artifact>
+</component>

@@ -1,0 +1,16 @@
+name: IgnitionGTA
+main: Main.Main
+version: 0.0.1
+commands:
+   check:
+      description: Shows your stars
+      usage: /<command>
+   zero:
+      description: Sets your stars to zero
+      usage: /<command>
+   ha:
+      description: Sets your stars to zero
+      usage: /<command>
+   ba:
+      description: Sets your stars to zero
+      usage: /<command>
