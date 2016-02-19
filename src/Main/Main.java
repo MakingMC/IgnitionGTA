@@ -2,6 +2,7 @@ package Main;
 
 import com.shampaggon.crackshot.events.WeaponDamageEntityEvent;
 import net.milkbowl.vault.economy.Economy;
+import net.minecraft.server.v1_8_R3.EntityProjectile;
 import org.bukkit.*;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -10,11 +11,14 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityDeathEvent;
-import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.entity.*;
+import org.bukkit.event.player.PlayerChatEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerPickupItemEvent;
+import org.bukkit.event.server.ServerListPingEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
@@ -24,7 +28,6 @@ import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.logging.Logger;
 
@@ -34,7 +37,9 @@ public final class Main extends JavaPlugin implements Listener {
     public HashMap<String, Integer> stars = new HashMap<>();
     public HashMap<String, Integer> kills = new HashMap<>();
     public HashMap<String, Integer> deaths = new HashMap<>();
-
+    public HashMap<String, String> arrowName = new HashMap<>();
+    public HashMap<String, Boolean> isTyping = new HashMap<>();
+    public Hologram hersaz;
     private boolean setupEconomy() {
         if (getServer().getPluginManager().getPlugin("Vault") == null) {
             return false;
@@ -57,27 +62,32 @@ public final class Main extends JavaPlugin implements Listener {
             return;
         }
         Bukkit.getServer().getPluginManager().registerEvents(this, this);
-
-
         getLogger().info("Enabling...");
         getLogger().info("Enabled");
         stars = new HashMap<>();
         kills = new HashMap<>();
         deaths = new HashMap<>();
-
+        arrowName = new HashMap<>();
+        isTyping = new HashMap<>();
+        Hologram h = new Hologram();
+        new BukkitRunnable() {
+            @Override
+            public void run()
+            {
+                removeGold();
+            }
+        }.runTaskTimer(this, 1L, 0L);
         for (Player p : Bukkit.getOnlinePlayers()
                 ) {
-
+            isTyping.put(p.getName(), false);
+            arrowName.putIfAbsent(p.getName(), null);
             stars.putIfAbsent(p.getPlayer().getName(), 0);
-
-
             if (Bukkit.getOnlinePlayers().size() >= 1) {
                 if (stars.size() >= 1) {
 
                     new BukkitRunnable() {
                         @Override
                         public void run()
-
                         {
                             starDown();
                         }
@@ -85,12 +95,67 @@ public final class Main extends JavaPlugin implements Listener {
                     new BukkitRunnable() {
                         @Override
                         public void run()
-
                         {
                             starCops();
                         }
                     }.runTaskTimer(this, 0L, 300L);
+
+
                 }
+            }
+        }
+    }
+    public void removeGold(){
+        for (Player p:Bukkit.getOnlinePlayers()
+             ) {
+            if(p.getPlayer().getInventory().contains(Material.GOLD_NUGGET)) {
+
+                p.getInventory().remove(Material.GOLD_NUGGET);
+                p.updateInventory();
+            }
+        }
+    }
+    public void DAB(Player p){
+
+        ItemStack boots = new ItemStack(Material.LEATHER_BOOTS);
+        ItemMeta bootmeta = boots.getItemMeta();
+        bootmeta.setDisplayName(String.format("%s%sDAB", ChatColor.LIGHT_PURPLE, ChatColor.BOLD));
+        boots.setItemMeta(bootmeta);
+        ItemStack pants = new ItemStack(Material.LEATHER_LEGGINGS);
+        ItemMeta pantsmeta = pants.getItemMeta();
+        pantsmeta.setDisplayName(String.format("%s%sMY", ChatColor.RED, ChatColor.BOLD));
+        pants.setItemMeta(pantsmeta);
+        ItemStack shirt = new ItemStack(Material.LEATHER_CHESTPLATE);
+        ItemMeta shirtmeta = shirt.getItemMeta();
+        shirtmeta.setDisplayName(String.format("%s%sAT", ChatColor.GREEN, ChatColor.BOLD));
+        shirt.setItemMeta(shirtmeta);
+        ItemStack hat = new ItemStack(Material.LEATHER_HELMET);
+        ItemMeta hatmeta = hat.getItemMeta();
+        hatmeta.setDisplayName(String.format("%s%sLOOK", ChatColor.AQUA, ChatColor.BOLD));
+        hat.setItemMeta(hatmeta);
+        p.getInventory().setArmorContents(new ItemStack[]{boots, pants, shirt, hat});
+
+    }
+    public void giveMoney(Integer money, Player player){
+        econ.depositPlayer(player, money);
+        player.sendMessage(String.format("%sYou have just earned %s%s%s dollars!", ChatColor.GREEN, ChatColor.LIGHT_PURPLE, money, ChatColor.GREEN));
+    }
+    @EventHandler
+    public void orgs(EntityShootBowEvent e){
+        if(arrowName.get(e.getEntity().getName()) != null) {
+            e.getProjectile().setCustomName(arrowName.get(e.getEntity().getName()));
+            e.getProjectile().setCustomNameVisible(true);
+        }
+    }
+    @EventHandler
+    public void pickupGold(PlayerPickupItemEvent e){
+        Player player = e.getPlayer();
+
+        if(e.getItem().getType() == EntityType.DROPPED_ITEM){
+            if(e.getItem().getItemStack().getType() == Material.GOLD_NUGGET){
+                String name = e.getItem().getItemStack().getItemMeta().getDisplayName();
+                int am = Integer.valueOf(name);
+                giveMoney(am, player);
             }
         }
     }
@@ -107,7 +172,7 @@ public final class Main extends JavaPlugin implements Listener {
                     objective2.setDisplaySlot(DisplaySlot.PLAYER_LIST);
                     objective.setDisplaySlot(DisplaySlot.SIDEBAR);
                     checkConfig(p);
-
+                    int strs = stars.get(p.getName());
                     int bal = (int)econ.getBalance(p);
 
                     objective.getScore(String.format("%s%sGang",ChatColor.DARK_GREEN, ChatColor.BOLD )).setScore(20);
@@ -117,31 +182,51 @@ public final class Main extends JavaPlugin implements Listener {
                     if(IgnitionGangs.Main.gang.get(p.getName())==null) {
                         objective.getScore(String.format("%sNo gang",ChatColor.RED)).setScore(19);
                     }
-                    if(IgnitionGangs.Main.gang.get(p.getName()).equals("")) {
-                        objective.getScore(String.format("%sNo gang",ChatColor.RED)).setScore(19);
-                    }
 
                     objective.getScore("        ").setScore(18);
                     objective.getScore(" ").setScore(17);
                     objective.getScore(String.format("%s%sBalance", ChatColor.AQUA, ChatColor.BOLD)).setScore(16);
                     objective.getScore(String.format("%s ", bal)).setScore(15);
-
-                    objective.getScore(String.format("%s%sWanted Level", ChatColor.RED, ChatColor.BOLD)).setScore(14);
-                    objective.getScore(String.format("%s  ", stars.get(p.getName()))).setScore(13);
+                    if(strs == 0) {
+                        objective.getScore(String.format("%s%sWanted Level", ChatColor.RED, ChatColor.BOLD)).setScore(14);
+                        objective.getScore("✪✪✪✪✪").setScore(13);
+                    }
+                    if(strs == 1) {
+                        objective.getScore(String.format("%s%sWanted Level", ChatColor.RED, ChatColor.BOLD)).setScore(14);
+                        objective.getScore(String.format("%s✪%s✪✪✪✪", ChatColor.GOLD, ChatColor.WHITE)).setScore(13);
+                    }
+                    if(strs == 2) {
+                        objective.getScore(String.format("%s%sWanted Level", ChatColor.RED, ChatColor.BOLD)).setScore(14);
+                        objective.getScore(String.format("%s✪✪%s✪✪✪", ChatColor.GOLD, ChatColor.WHITE)).setScore(13);
+                    }
+                    if(strs == 3) {
+                        objective.getScore(String.format("%s%sWanted Level", ChatColor.RED, ChatColor.BOLD)).setScore(14);
+                        objective.getScore(String.format("%s✪✪✪%s✪✪", ChatColor.GOLD, ChatColor.WHITE)).setScore(13);
+                    }
+                    if(strs == 4) {
+                        objective.getScore(String.format("%s%sWanted Level", ChatColor.RED, ChatColor.BOLD)).setScore(14);
+                        objective.getScore(String.format("%s✪✪✪✪%s✪", ChatColor.GOLD, ChatColor.WHITE)).setScore(13);
+                    }
+                    if(strs == 5) {
+                        objective.getScore(String.format("%s%sWanted Level", ChatColor.RED, ChatColor.BOLD)).setScore(14);
+                        objective.getScore(String.format("%s✪✪✪✪✪", ChatColor.GOLD)).setScore(13);
+                    }
                     //objective.getScore("  ").setScore(12);
                     //objective.getScore(String.format("%s%sOnline Players", ChatColor.GREEN, ChatColor.BOLD)).setScore(11);
                     //objective.getScore(String.format("%s   ", Bukkit.getServer().getOnlinePlayers().size())).setScore(10);
                     //objective.getScore("   ").setScore(9);
-                    objective.getScore(String.format("%s%sKills", ChatColor.GOLD,ChatColor.BOLD)).setScore(8);
+                    objective.getScore(String.format("%s%sKills", ChatColor.GREEN,ChatColor.BOLD)).setScore(8);
                     objective.getScore(String.format("%s    ", kills.get( p.getName()))).setScore(7);
                     //objective.getScore("    ").setScore(6);
                     objective.getScore(String.format("%s%sDeaths", ChatColor.DARK_RED,ChatColor.BOLD)).setScore(5);
                     objective.getScore(String.format("%s             ", deaths.get(p.getName()))).setScore(4);
                     //objective.getScore("     ").setScore(3);
-
+                    objective.getScore(String.format("%s%sK/D Ratio",ChatColor.LIGHT_PURPLE , ChatColor.BOLD)).setScore(2);
                     if(deaths.get(p.getName()) != 0 && kills.get(p.getName()) != 0) {
-                        objective.getScore(String.format("%s%sK/D Ratio",ChatColor.LIGHT_PURPLE , ChatColor.BOLD)).setScore(2);
                         objective.getScore(String.format("%s                  ", Math.round(kills.get(p.getName())/deaths.get(p.getName())))).setScore(1);
+                    }
+                    else{
+                        objective.getScore(String.format("%s                  ", 0)).setScore(1);
                     }
                     p.setScoreboard(sb);
                 }
@@ -165,23 +250,46 @@ public final class Main extends JavaPlugin implements Listener {
                 deaths.putIfAbsent(p.getName(), 0);
             }
         }
+    @EventHandler
+    public void playerHitPlayer(EntityDamageByEntityEvent e){
+        if(e.getDamager().getType().equals(EntityType.PLAYER)){
+                holog((Player)e.getDamager(), e.getEntity().getLocation(), String.format("%s",e.getDamage()));
 
+        }
+    }
+    public void holog(Player p, Location loc, String message) {
+        final Hologram holo = new Hologram(message);
+        holo.show(p, loc);
+        Bukkit.getScheduler().scheduleSyncDelayedTask(this, new BukkitRunnable() {
 
+            @Override
+            public void run() {
+                holo.destroy();
+            }
+        }, 140);
+    }
+    @EventHandler
+    public void countDown(ServerListPingEvent event) {
+        int amofp = event.getNumPlayers();
+        event.setMaxPlayers(300);
+        event.setMotd("                           "+amofp + " Players                         "+ChatColor.RED + ChatColor.BOLD + "               Welcome to IgnitionGTA " + event.getAddress().getHostName());
+
+    }
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        Scoresses(event.getPlayer());
+
 
         Player player = event.getPlayer();
         stars.putIfAbsent(player.getName(), 0);
-
+        arrowName.putIfAbsent(player.getName(), null);
         checkConfig(event.getPlayer());
         econ.createPlayerAccount(player);
-
+        Scoresses(event.getPlayer());
     }
     @EventHandler
     public void ShotPlayer(WeaponDamageEntityEvent event){
-
+        //TODO: Make name of gold ingot be the amount the person is going to get
         if(event.getVictim().isDead()) {
             Player killer = (Player) event.getDamager();
             Player vic = (Player) event.getVictim();
@@ -203,13 +311,20 @@ public final class Main extends JavaPlugin implements Listener {
 
 
         Player p = event.getEntity().getPlayer();
+        Location l = p.getLocation();
+        ItemStack s = new ItemStack(Material.GOLD_NUGGET, 1);
+        ItemMeta im = s.getItemMeta();
+
         int mon = (int) econ.getBalance(p)/3;
+        im.setDisplayName(String.format("%s",mon));
+        s.setItemMeta(im);
         econ.withdrawPlayer(p, mon);
+        getServer().getWorlds().get(0).dropItem(l, s);
         event.getEntity().sendMessage(String.format("%sYou have lost %s%s%s dollars.", ChatColor.LIGHT_PURPLE, ChatColor.GREEN, mon, ChatColor.LIGHT_PURPLE));
         deaths.put(p.getName(), deaths.get(p.getName())+1);
         if(event.getEntity().getKiller().getType().equals(EntityType.PLAYER)) {
-            econ.depositPlayer(p.getKiller(), mon);
-            event.getEntity().getKiller().sendMessage(String.format("%sYou have earned %s%s%s dollars.", ChatColor.LIGHT_PURPLE, ChatColor.GREEN, mon, ChatColor.LIGHT_PURPLE));
+            //econ.depositPlayer(p.getKiller(), mon);
+            //event.getEntity().getKiller().sendMessage(String.format("%sYou have earned %s%s%s dollars.", ChatColor.LIGHT_PURPLE, ChatColor.GREEN, mon, ChatColor.LIGHT_PURPLE));
             kills.put(event.getEntity().getKiller().getName(), kills.get(event.getEntity().getKiller().getName())+1);
             if (stars.get(event.getEntity().getKiller().getName()) <= 4) {
 
@@ -243,14 +358,21 @@ public final class Main extends JavaPlugin implements Listener {
     public void killCop(EntityDeathEvent event) {
 
         if (event.getEntity().getKiller() != null) {
-            
+
+            if(event.getEntity().getKiller() instanceof Player) {
+                Location l = event.getEntity().getLocation();
+                ItemStack s = new ItemStack(Material.GOLD_NUGGET, 1);
+                ItemMeta im = s.getItemMeta();
+
+                im.setDisplayName(String.format("%s", 5));
+                s.setItemMeta(im);
+
+                getServer().getWorlds().get(0).dropItemNaturally(l, s);
+            }
             if (stars.get(event.getEntity().getKiller().getName()) <= 4) {
                 if (event.getEntity().getType() == EntityType.PIG_ZOMBIE) {
                     if (event.getEntity().getKiller() instanceof Player) {
                         Player player = event.getEntity().getKiller().getPlayer();
-                        econ.depositPlayer(player, 5);
-
-                        player.sendMessage(String.format("%sYou earned %s5 %sdollars.", ChatColor.LIGHT_PURPLE, ChatColor.GREEN, ChatColor.LIGHT_PURPLE));
                         stars.put(event.getEntity().getKiller().getName(), stars.get(event.getEntity().getKiller().getName())+1);
                     }
                 }
@@ -396,7 +518,19 @@ public final class Main extends JavaPlugin implements Listener {
         }
 
     }
-
+    @EventHandler
+    public void chat(PlayerChatEvent e){
+        if(isTyping.get(e.getPlayer().getName())) {
+            arrowName.put(e.getPlayer().getName(), e.getMessage());
+            isTyping.put(e.getPlayer().getName(), false);
+            e.getPlayer().sendMessage(String.format("%sYou have set your arrow name to %s%s%s.", ChatColor.AQUA, ChatColor.GREEN, arrowName.get(e.getPlayer().getName()), ChatColor.AQUA));
+            e.setCancelled(true);
+        }
+    }
+    @EventHandler
+    public void drop(EntityInteractEvent e){
+        getServer().broadcastMessage(e.getEntity().getName());
+    }
     @Override
     public void onLoad() {
         getLogger().info("Loading...");
@@ -407,6 +541,7 @@ public final class Main extends JavaPlugin implements Listener {
         Player player = (Player) sender;
         switch (label.toLowerCase()) {
             case "check": {
+                DAB(player);
                 player.sendMessage(String.format("You have %s Stars", stars.get(player.getName())));
                 break;
             }
@@ -419,11 +554,26 @@ public final class Main extends JavaPlugin implements Listener {
                 break;
             }
             case "zero": {
-                if(sender.isOp()) {
+                if(player.isOp()) {
                     stars.put(sender.getName(), 0);
                 }
                 else{
-                    sender.sendMessage(ChatColor.RED+"You must be op!");
+                    player.sendMessage(ChatColor.RED+"You must be op!");
+                }
+                break;
+            }
+            case "arrow":{
+                if(args.length == 0) {
+                    if(isTyping.get(player.getName()).equals(true)){
+                        player.sendMessage(String.format("%s/arrow has already been typed. Please type in chat the name of your arrow", ChatColor.RED));
+                    }
+                    else {
+                        isTyping.put(player.getName(), true);
+                        player.sendMessage(String.format("%sPlease type the new name your arrow", ChatColor.GREEN));
+                    }
+                }
+                else{
+                    player.sendMessage(String.format("%sPlease do /arrow", ChatColor.RED));
                 }
                 break;
             }

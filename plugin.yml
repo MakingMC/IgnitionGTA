@@ -14,3 +14,6 @@ commands:
    ba:
       description: Sets your stars to zero
       usage: /<command>
+   arrow:
+      description: Sets your stars to zero
+      usage: /<command>
